@@ -173,7 +173,11 @@ function gate(r) {
   const lastPassed = passed.length ? Math.max(...passed) : 0;
   const unlockedThrough = lastPassed + UNLOCK_AHEAD;
   const pct = (k) => Math.round(((r.pass && r.pass[k]) || (k === "reading" ? 0.65 : 0.8)) * 100);
-  const allDone = (items, cat) => items.filter((i) => i.category === cat).every((i) => i.status === "done");
+  // A step that isn't posted yet counts as not done.
+  const allDone = (items, cat) => {
+    const of = items.filter((i) => i.category === cat);
+    return of.length > 0 && of.every((i) => i.status === "done");
+  };
 
   const modules = r.modules.map((m) => {
     if (m.lesson == null) return m;
@@ -190,6 +194,7 @@ function gate(r) {
     return {
       ...m,
       blocked,
+      why, // reasons per category, also used for steps not posted yet
       // Anything already finished keeps its tick.
       items: m.items.map((i) => (why[i.category] && i.status !== "done" ? { ...i, status: "blocked", blockedBy: why[i.category] } : i)),
     };
@@ -359,8 +364,12 @@ function renderLessons() {
       cols.map(([k]) => {
         const items = m.items.filter((i) => i.category === k);
         if (items.length) return h("td", {}, h("div", { class: "marks" }, items.map(mark)));
-        const label = m.blocked ? `Unlocks after you pass the Lesson ${m.lesson - UNLOCK_AHEAD} terminal quiz` : "Not available yet";
-        return h("td", {}, h("span", { class: "mk lock", title: label, "aria-label": label }, lockIcon()));
+        if (!GATED.includes(k)) return h("td");
+        // Not posted in Canvas: locked if the lesson or its prerequisites
+        // aren't open yet, otherwise it's simply not done.
+        const reason = m.why && m.why[k];
+        if (reason) return h("td", {}, h("span", { class: "mk lock", title: reason, "aria-label": reason }, lockIcon()));
+        return h("td", {}, h("span", { class: "mk no", title: "Not done", "aria-label": "Not done" }, h("b", { text: "✗" })));
       })
     )
   );
