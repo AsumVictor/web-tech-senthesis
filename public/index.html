@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Web Tech Report</title>
+  <meta name="description" content="Your Canvas course progress: lessons, labs, quizzes and what's left to do.">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Tech Report">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Sign in -->
+  <main id="login" class="login" hidden>
+    <div class="login-card">
+      <img src="/icons/icon.svg" alt="" class="login-logo" width="56" height="56">
+      <h1>Web Tech Report</h1>
+      <p class="muted">Sign in with your Canvas access token to see every lesson, lab and quiz, with ticks for what you've finished.</p>
+      <form id="login-form" autocomplete="off">
+        <label>Canvas address
+          <input id="host" name="host" inputmode="url" spellcheck="false" placeholder="ashesi.instructure.com" required>
+        </label>
+        <label>Access token
+          <input id="token" name="token" type="password" spellcheck="false" placeholder="Paste your token" required>
+        </label>
+        <label class="check"><input id="remember" type="checkbox" checked> Keep me signed in on this device</label>
+        <p id="login-error" class="error" role="alert" hidden></p>
+        <button id="login-btn" type="submit" class="btn primary">Show my progress</button>
+      </form>
+      <details class="help">
+        <summary>How do I get a token?</summary>
+        <ol>
+          <li>Open Canvas and go to <b>Account → Settings</b>.</li>
+          <li>Scroll to <b>Approved Integrations</b> and choose <b>+ New Access Token</b>.</li>
+          <li>Give it a name (like "Web Tech Report"), then generate it and copy it here.</li>
+        </ol>
+        <p class="muted small">Your token is kept only in this browser. The server passes it to Canvas for each request and never saves it. You can delete it in Canvas at any time.</p>
+      </details>
+    </div>
+  </main>
+
+  <!-- Dashboard -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="who">
+        <img id="avatar" class="avatar" alt="" width="40" height="40">
+        <div>
+          <div class="hello" id="hello"></div>
+          <select id="course" aria-label="Course"></select>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="refresh" class="btn icon" title="Refresh" aria-label="Refresh">↻</button>
+        <button id="logout" class="btn ghost">Sign out</button>
+      </div>
+    </header>
+
+    <main class="content">
+      <p id="offline" class="banner" hidden>You're offline. Showing your last saved report.</p>
+      <p id="app-error" class="banner error" role="alert" hidden></p>
+
+      <section class="summary">
+        <div class="ring-card">
+          <svg viewBox="0 0 120 120" class="ring" aria-hidden="true">
+            <circle cx="60" cy="60" r="52" class="ring-bg"/>
+            <circle cx="60" cy="60" r="52" class="ring-fg" id="ring-fg"/>
+          </svg>
+          <div class="ring-label"><b id="pct">–</b><span>complete</span></div>
+        </div>
+        <div class="stats">
+          <h2 id="course-name"></h2>
+          <div class="stat-row">
+            <div class="stat"><b id="n-done">–</b><span>done</span></div>
+            <div class="stat"><b id="n-todo">–</b><span>to do</span></div>
+            <div class="stat"><b id="n-locked">–</b><span>closed</span></div>
+          </div>
+          <p class="muted small" id="updated"></p>
+        </div>
+      </section>
+
+      <section>
+        <h3>Summary</h3>
+        <p class="muted small sum-note">Terminal quizzes count as done only with 80% or more. Below that they're marked <b>Retake</b>.</p>
+        <div class="sum-wrap">
+          <table class="sum" id="summary-table"></table>
+        </div>
+      </section>
+
+      <section id="todo-section">
+        <h3>Still to do</h3>
+        <ul id="todo" class="todo"></ul>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h3>Lessons</h3>
+          <div class="seg" role="group" aria-label="Filter">
+            <button data-filter="all" class="on">All</button>
+            <button data-filter="todo">Unfinished</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="grid" id="grid"></table>
+        </div>
+        <div id="cards" class="cards"></div>
+      </section>
+
+      <section id="extra-section" hidden>
+        <h3>Other modules</h3>
+        <div id="extra" class="cards always"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="loading" class="loading" hidden><div class="spinner"></div></div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "web-tech-report",
+  "version": "1.0.0",
+  "description": "PWA that shows a student's Canvas course progress (lessons, labs, quizzes) from their access token.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}
