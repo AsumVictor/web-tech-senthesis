@@ -358,7 +358,9 @@ function renderLessons() {
       h("th", { scope: "row" }, h("span", { class: "full", text: m.name }), h("span", { class: "short", text: m.lesson != null ? `L${m.lesson}` : m.name })),
       cols.map(([k]) => {
         const items = m.items.filter((i) => i.category === k);
-        return h("td", {}, items.length ? h("div", { class: "marks" }, items.map(mark)) : h("span", { class: "na", text: "—" }));
+        if (items.length) return h("td", {}, h("div", { class: "marks" }, items.map(mark)));
+        const label = m.blocked ? `Unlocks after you pass the Lesson ${m.lesson - UNLOCK_AHEAD} terminal quiz` : "Not available yet";
+        return h("td", {}, h("span", { class: "mk lock", title: label, "aria-label": label }, lockIcon()));
       })
     )
   );
