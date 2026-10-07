@@ -14,10 +14,14 @@ const COLS = [ // [category, full label, short label]
   ["other", "Other", "Other"],
 ];
 
-// The course is linear: you can work up to the latest passed terminal quiz's
-// lesson + UNLOCK_AHEAD. Later lessons' quizzes and discussions are blocked.
+// The course is linear. Inside a lesson:
+//   Reading Quiz (65%+)  ->  Discussion
+//   Discussion + Lab     ->  Terminal Quiz
+// Across lessons: you can work up to your latest passed terminal quiz's
+// lesson + UNLOCK_AHEAD; everything in later lessons is blocked.
 const UNLOCK_AHEAD = 2;
-const GATED = ["reading", "report", "terminal"];
+const GATED = ["reading", "lab", "report", "terminal"];
+
 const LABEL = { done: "✓ Done", todo: "To do", missing: "Missing", retake: "Retake", pending: "Awaiting grade", locked: "Closed", blocked: "Blocked", none: "—" };
 const OPEN = ["todo", "missing", "retake"]; // still needs work
 
@@ -168,12 +172,26 @@ function gate(r) {
     .map((m) => m.lesson);
   const lastPassed = passed.length ? Math.max(...passed) : 0;
   const unlockedThrough = lastPassed + UNLOCK_AHEAD;
+  const pct = (k) => Math.round(((r.pass && r.pass[k]) || (k === "reading" ? 0.65 : 0.8)) * 100);
+  const allDone = (items, cat) => items.filter((i) => i.category === cat).every((i) => i.status === "done");
+
   const modules = r.modules.map((m) => {
-    const blocked = m.lesson != null && m.lesson > unlockedThrough;
+    if (m.lesson == null) return m;
+    const blocked = m.lesson > unlockedThrough;
+    const why = {};
+    if (blocked) {
+      const reason = `Unlocks after you pass the Lesson ${m.lesson - UNLOCK_AHEAD} terminal quiz`;
+      GATED.forEach((c) => (why[c] = reason));
+    } else {
+      if (!allDone(m.items, "reading")) why.report = `Pass the reading quiz (${pct("reading")}%+) first`;
+      const needs = [!allDone(m.items, "report") && "discussion", !allDone(m.items, "lab") && "lab"].filter(Boolean);
+      if (needs.length) why.terminal = `Finish the ${needs.join(" and ")} first`;
+    }
     return {
       ...m,
       blocked,
-      items: m.items.map((i) => (blocked && GATED.includes(i.category) && i.status !== "done" ? { ...i, status: "blocked" } : i)),
+      // Anything already finished keeps its tick.
+      items: m.items.map((i) => (why[i.category] && i.status !== "done" ? { ...i, status: "blocked", blockedBy: why[i.category] } : i)),
     };
   });
   return { ...r, modules, lastPassed, unlockedThrough };
@@ -255,7 +273,7 @@ function renderSummary(all) {
 }
 
 function passMark(i) {
-  return +(i.points * (report.terminalPass || 0.8)).toFixed(1);
+  return +(i.points * ((report.pass || {})[i.category] || 0.8)).toFixed(1);
 }
 
 function fmtDate(d) {
@@ -312,7 +330,7 @@ function lockIcon() {
 function mark(i) {
   const kind = i.status === "done" ? "ok" : i.status === "blocked" ? "lock" : "no";
   const scored = i.score != null && i.points > 1 && (i.status === "done" || i.status === "retake");
-  const why = { blocked: "Blocked", pending: "Awaiting grade", retake: "Below 80%, retake", locked: "Closed", missing: "Missing", todo: "Not done", done: "Done" }[i.status] || "";
+  const why = { blocked: i.blockedBy || "Blocked", pending: "Awaiting grade", retake: `Below the ${Math.round(((report.pass || {})[i.category] || 0.8) * 100)}% pass mark, retake`, locked: "Closed", missing: "Missing", todo: "Not done", done: "Done" }[i.status] || "";
   const label = `${i.title}: ${why}${scored ? ` (${i.score}/${i.points})` : ""}`;
   return h("a", { class: `mk ${kind}`, href: i.url, target: "_blank", rel: "noopener", title: label, "aria-label": label },
     kind === "lock" ? lockIcon() : h("b", { text: kind === "ok" ? "✓" : "✗" }),
@@ -328,8 +346,8 @@ function renderLessons() {
 
   const next = lessons.find((m) => m.blocked);
   $("gate-note").textContent = next
-    ? `You can work up to Lesson ${report.unlockedThrough} (your latest passed terminal quiz is ${report.lastPassed ? `Lesson ${report.lastPassed}` : "none yet"}, plus ${UNLOCK_AHEAD}). Lesson ${next.lesson} onward unlocks as you pass more terminal quizzes.`
-    : `Every lesson is unlocked.`;
+    ? `You can work up to Lesson ${report.unlockedThrough} (latest passed terminal quiz: ${report.lastPassed ? `Lesson ${report.lastPassed}` : "none yet"}, plus ${UNLOCK_AHEAD}). In each lesson: reading quiz (65%+) → discussion; discussion + lab → terminal quiz.`
+    : `Every lesson is unlocked. In each lesson: reading quiz (65%+) → discussion; discussion + lab → terminal quiz.`;
 
   const head = h("tr", {},
     h("th", { scope: "col", text: "Lesson" }),

@@ -33,3 +33,4 @@ Environment variables:
 |---|---|---|
 | `CANVAS_HOST` | `ashesi.instructure.com` | The Canvas site to read from (internal; students never see it) |
 | `TERMINAL_PASS` | `0.8` | Fraction of points a terminal quiz needs to count as passed |
+| `READING_PASS` | `0.65` | Fraction of points a reading quiz needs to count as passed |
