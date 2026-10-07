@@ -27,7 +27,7 @@
         <label>Access token
           <input id="token" name="token" type="password" spellcheck="false" placeholder="Paste your token" required>
         </label>
-        <label class="check"><input id="remember" type="checkbox" checked> Keep me signed in on this device</label>
+        <p class="muted small stay">You'll stay signed in on this device until you press <b>Sign out</b>.</p>
         <p id="login-error" class="error" role="alert" hidden></p>
         <button id="login-btn" type="submit" class="btn primary">Show my progress</button>
       </form>
@@ -38,7 +38,7 @@
           <li>Scroll to <b>Approved Integrations</b> and choose <b>+ New Access Token</b>.</li>
           <li>Give it a name (like "Web Tech Report"), then generate it and copy it here.</li>
         </ol>
-        <p class="muted small">Your token is kept only in this browser. The server passes it to Canvas for each request and never saves it. You can delete it in Canvas at any time.</p>
+        <p class="muted small">Your token is kept in a secure cookie on this device that page scripts can't read. The server passes it to Canvas for each request and never saves it. You can delete it in Canvas at any time.</p>
       </details>
     </div>
   </main>

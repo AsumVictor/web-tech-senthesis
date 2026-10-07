@@ -75,6 +75,7 @@ label input { margin-top: 6px; font-weight: 400; }
 label.check { display: flex; gap: 8px; align-items: center; font-weight: 400; }
 label.check input { width: auto; margin: 0; }
 .error { color: var(--locked); }
+.stay { margin: -4px 0 14px; }
 
 /* Login */
 .login { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; }

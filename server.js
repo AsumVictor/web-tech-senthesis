@@ -25,9 +25,9 @@ function serveStatic(req, res, url) {
 http
   .createServer((req, res) => {
     const url = new URL(req.url, "http://localhost");
-    if (req.method !== "GET") { res.writeHead(405); return res.end(); }
     if (url.pathname === "/healthz") { res.writeHead(200); return res.end("ok"); }
     if (url.pathname.startsWith("/api/")) return handleApi(req, res);
+    if (req.method !== "GET") { res.writeHead(405); return res.end(); }
     serveStatic(req, res, url);
   })
   .listen(PORT, () => console.log(`web-tech-report listening on :${PORT}`));

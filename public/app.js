@@ -1,6 +1,8 @@
 "use strict";
 
-const KEY = "wtr.session";        // { host, token } (only if "keep me signed in")
+// The Canvas token lives in an HttpOnly cookie set by /api/login; this script
+// never stores or reads it. It stays until the student presses "Sign out".
+const LEGACY_KEY = "wtr.session"; // older versions kept the token here
 const CACHE = "wtr.report.";      // last report per course, for offline viewing
 const COURSE = "wtr.course";      // last selected course id
 
@@ -34,19 +36,30 @@ function h(tag, props = {}, ...kids) {
   return el;
 }
 
-let session = null;   // { host, token }
 let report = null;
 let filter = "all";
 
 // ---------- API ----------
-async function api(path) {
-  const res = await fetch(path, {
-    headers: { Authorization: `Bearer ${session.token}`, "X-Canvas-Host": session.host },
-    cache: "no-store",
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) { const e = new Error(body.error || `Error ${res.status}`); e.status = res.status; throw e; }
-  return body;
+async function api(path, body) {
+  const res = await fetch(path, body === undefined
+    ? { cache: "no-store", credentials: "same-origin" }
+    : { method: "POST", cache: "no-store", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const e = new Error(data.error || `Error ${res.status}`);
+    e.status = res.status;
+    e.code = data.code;
+    throw e;
+  }
+  return data;
+}
+
+// Signed out on the server, or Canvas rejected the token: back to sign-in.
+// The cookie is left alone; only "Sign out" removes it.
+function authFailed(err) {
+  if (err.status !== 401) return false;
+  showLogin(err.code === "signed_out" ? "" : err.message);
+  return true;
 }
 
 function busy(on) { $("loading").hidden = !on; }
@@ -69,41 +82,36 @@ $("login-form").addEventListener("submit", async (e) => {
   const host = $("host").value.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
   const token = $("token").value.trim();
   if (!host || !token) return;
-  session = { host, token };
   $("login-btn").disabled = true;
+  busy(true);
   try {
-    await start();
-    if ($("remember").checked) store.set(KEY, session);
+    const me = await api("/api/login", { host, token });
     $("token").value = "";
+    await showDashboard(me);
   } catch (err) {
-    session = null;
-    showLogin(err.message);
+    showLogin(err.code === "token_rejected" ? "Canvas didn't accept that token. Check you copied all of it and that it hasn't been deleted." : err.message);
   } finally {
     $("login-btn").disabled = false;
+    busy(false);
   }
 });
 
-$("logout").addEventListener("click", () => {
-  store.del(KEY);
+$("logout").addEventListener("click", async () => {
+  busy(true);
+  try { await api("/api/logout", {}); } catch {}
+  busy(false);
   store.del(COURSE);
   Object.keys(localStorage).filter((k) => k.startsWith(CACHE)).forEach((k) => store.del(k));
-  session = null;
   report = null;
   showLogin();
 });
 
 // ---------- Dashboard ----------
-async function start() {
-  busy(true);
-  try {
-    const me = await api("/api/me");
-    renderUser(me);
-    $("login").hidden = true;
-    $("app").hidden = false;
-    await loadReport();
-  } finally {
-    busy(false);
-  }
+async function showDashboard(me) {
+  renderUser(me);
+  $("login").hidden = true;
+  $("app").hidden = false;
+  await loadReport();
 }
 
 function renderUser({ user, courses }) {
@@ -143,7 +151,7 @@ async function loadReport() {
     store.set(CACHE + courseId, report);
     render();
   } catch (err) {
-    if (err.status === 401) { store.del(KEY); return showLogin(err.message); }
+    if (authFailed(err)) return;
     if (cached && !navigator.onLine) $("offline").hidden = false;
     else { $("app-error").textContent = err.message; $("app-error").hidden = false; }
   } finally {
@@ -312,30 +320,41 @@ function moduleCard(m) {
 }
 
 // ---------- Boot ----------
-window.addEventListener("online", () => { if (session) loadReport(); });
+window.addEventListener("online", () => { if (!$("app").hidden) loadReport(); });
 
 (async function boot() {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
-  session = store.get(KEY);
-  if (!session || !session.token) return showLogin();
+  // Ask the browser not to evict saved reports under storage pressure.
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+  busy(true);
   try {
-    await start();
+    // Move a token saved by an older version into the cookie, then forget it here.
+    const legacy = store.get(LEGACY_KEY);
+    if (legacy && legacy.token) {
+      store.del(LEGACY_KEY);
+      try { return await showDashboard(await api("/api/login", legacy)); } catch {}
+    }
+    await showDashboard(await api("/api/me"));
   } catch (err) {
-    if (err.status === 401) { store.del(KEY); return showLogin(err.message); }
-    // Offline on launch: show the last saved report if we have one.
+    if (authFailed(err)) return;
+    // Offline (or Canvas down) on launch: show the last saved report if there is one.
     const courseId = store.get(COURSE);
     const cached = Object.keys(localStorage).filter((k) => k.startsWith(CACHE)).map((k) => store.get(k))
-      .find((r) => !courseId || String(r.course.id) === String(courseId));
+      .find((r) => r && (!courseId || String(r.course.id) === String(courseId)));
     if (cached) {
       report = cached;
       $("hello").textContent = "Welcome back 👋";
       $("course").replaceChildren(h("option", { value: cached.course.id, text: cached.course.name }));
       $("login").hidden = true;
       $("app").hidden = false;
-      $("offline").hidden = false;
+      if (navigator.onLine) { $("app-error").textContent = err.message; $("app-error").hidden = false; }
+      else $("offline").hidden = false;
       render();
     } else {
       showLogin(err.message);
     }
+  } finally {
+    busy(false);
   }
 })();

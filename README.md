@@ -4,14 +4,14 @@ A progressive web app that shows a student's Canvas course progress. It has a su
 
 - **Sign in with a Canvas access token** (Account → Settings → Approved Integrations → New Access Token).
 - **Personal:** it greets you by name, shows your avatar, and opens Web Technologies by default. You can switch to any of your active courses.
-- **Stays signed in:** your token is kept in your own browser (localStorage), so you don't paste it again. "Sign out" clears it.
+- **Stays signed in until you sign out:** after sign-in, the token is kept in an HttpOnly, Secure, SameSite=Strict cookie. Page scripts can't read it, and Safari's 7-day storage cleanup doesn't remove it. The cookie is renewed on every visit (browsers cap a single cookie at 400 days) and is only removed when you press "Sign out".
 - **Installable and works offline:** you can add it to your home screen, and it shows your last saved report when you're offline.
 - **Private:** the API only forwards each request to Canvas (Canvas blocks direct browser calls). It never stores or logs tokens, and it only talks to `*.instructure.com`.
 
 ## Layout
 
 - `public/` holds the static PWA (HTML, CSS, JS, service worker, manifest, icons).
-- `api/` holds the Vercel serverless functions (`/api/me`, `/api/report`, `/api/config`).
+- `api/` holds the Vercel serverless functions (`/api/login`, `/api/logout`, `/api/me`, `/api/report`, `/api/config`).
 - `lib/canvas.js` holds the Canvas proxy and report builder that both use.
 - `server.js` is a zero-dependency local dev server that runs the same routes.
 
@@ -32,4 +32,5 @@ Optional environment variables:
 | Var | Default | Purpose |
 |---|---|---|
 | `CANVAS_DEFAULT_HOST` | `ashesi.instructure.com` | Prefilled Canvas address on the sign-in page |
+| `TERMINAL_PASS` | `0.8` | Fraction of points a terminal quiz needs to count as passed |
 | `CANVAS_ALLOWED_HOSTS` | (none) | Comma-separated extra Canvas hosts that aren't on `instructure.com` |
