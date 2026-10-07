@@ -6,14 +6,19 @@ const LEGACY_KEY = "wtr.session"; // older versions kept the token here
 const CACHE = "wtr.report.";      // last report per course, for offline viewing
 const COURSE = "wtr.course";      // last selected course id
 
-const COLS = [
-  ["reading", "Reading Quiz"],
-  ["lab", "Lab"],
-  ["report", "Discussion Report"],
-  ["terminal", "Terminal Quiz"],
-  ["other", "Other"],
+const COLS = [ // [category, full label, short label]
+  ["reading", "Reading Quiz", "Reading"],
+  ["lab", "Lab", "Lab"],
+  ["report", "Discussion", "Discuss."],
+  ["terminal", "Terminal Quiz", "Terminal"],
+  ["other", "Other", "Other"],
 ];
-const LABEL = { done: "✓ Done", todo: "To do", missing: "Missing", retake: "Retake", pending: "Awaiting grade", locked: "Closed", none: "—" };
+
+// The course is linear: you can work up to the latest passed terminal quiz's
+// lesson + UNLOCK_AHEAD. Later lessons' quizzes and discussions are blocked.
+const UNLOCK_AHEAD = 2;
+const GATED = ["reading", "report", "terminal"];
+const LABEL = { done: "✓ Done", todo: "To do", missing: "Missing", retake: "Retake", pending: "Awaiting grade", locked: "Closed", blocked: "Blocked", none: "—" };
 const OPEN = ["todo", "missing", "retake"]; // still needs work
 
 const $ = (id) => document.getElementById(id);
@@ -139,11 +144,12 @@ async function loadReport() {
   $("app-error").hidden = true;
   $("offline").hidden = true;
   const cached = store.get(CACHE + courseId);
-  if (cached) { report = cached; render(); }
+  if (cached) { report = gate(cached); render(); }
   busy(!cached);
   try {
-    report = await api(`/api/report?course=${encodeURIComponent(courseId)}`);
-    store.set(CACHE + courseId, report);
+    const fresh = await api(`/api/report?course=${encodeURIComponent(courseId)}`);
+    store.set(CACHE + courseId, fresh);
+    report = gate(fresh);
     render();
   } catch (err) {
     if (authFailed(err)) return;
@@ -156,12 +162,30 @@ async function loadReport() {
 
 function tracked(items) { return items.filter((i) => i.status !== "none"); }
 
+function gate(r) {
+  const passed = r.modules
+    .filter((m) => m.lesson != null && m.items.some((i) => i.category === "terminal" && i.status === "done"))
+    .map((m) => m.lesson);
+  const lastPassed = passed.length ? Math.max(...passed) : 0;
+  const unlockedThrough = lastPassed + UNLOCK_AHEAD;
+  const modules = r.modules.map((m) => {
+    const blocked = m.lesson != null && m.lesson > unlockedThrough;
+    return {
+      ...m,
+      blocked,
+      items: m.items.map((i) => (blocked && GATED.includes(i.category) && i.status !== "done" ? { ...i, status: "blocked" } : i)),
+    };
+  });
+  return { ...r, modules, lastPassed, unlockedThrough };
+}
+
 function render() {
   const all = tracked(report.modules.flatMap((m) => m.items));
   const count = (s) => all.filter((i) => s.includes(i.status)).length;
   const done = count(["done"]);
   const todo = count(OPEN);
   const locked = count(["locked"]);
+  const blocked = count(["blocked"]);
   const pct = all.length ? Math.round((done / all.length) * 100) : 0;
 
   $("course-name").textContent = report.course.name;
@@ -170,6 +194,7 @@ function render() {
   $("n-done").textContent = done;
   $("n-todo").textContent = todo;
   $("n-locked").textContent = locked;
+  $("n-blocked").textContent = blocked;
   $("updated").textContent = `Updated ${new Date(report.fetchedAt).toLocaleString()}`;
 
   renderSummary(all);
@@ -177,12 +202,12 @@ function render() {
   renderLessons();
 }
 
-const SUMMARY_ROWS = [
-  ["reading", "Reading Quizzes"],
-  ["lab", "Labs"],
-  ["report", "Discussion Reports"],
-  ["terminal", "Terminal Quizzes"],
-  ["other", "Other Assignments"],
+const SUMMARY_ROWS = [ // [category, full label, short label]
+  ["reading", "Reading Quizzes", "Reading"],
+  ["lab", "Labs", "Labs"],
+  ["report", "Discussion Reports", "Discuss."],
+  ["terminal", "Terminal Quizzes", "Terminal"],
+  ["other", "Other Assignments", "Other"],
 ];
 
 function tally(items) {
@@ -193,35 +218,37 @@ function tally(items) {
     done: n(["done"]),
     todo: n(OPEN),
     locked: n(["locked"]),
+    blocked: n(["blocked"]),
     score: graded.reduce((a, i) => a + i.score, 0),
     points: graded.reduce((a, i) => a + i.points, 0),
   };
 }
 
-function summaryRow(label, t) {
+function summaryRow(label, t, short = label) {
   const pct = t.total ? Math.round((t.done / t.total) * 100) : 0;
-  const num = (v, cls) => h("td", { class: v ? cls : `${cls} zero`, text: String(v) });
+  const num = (v, cls) => h("td", { class: `${cls}${v ? "" : " zero"}`, text: String(v) });
   const score = t.points
     ? [h("span", { class: "frac", text: `${+t.score.toFixed(1)}/${t.points} ` }), h("span", { class: "pct", text: `${Math.round((t.score / t.points) * 100)}%` })]
     : "—";
   const fill = h("i");
   fill.style.width = `${pct}%`; // CSSOM, so the strict CSP allows it
   return h("tr", {},
-    h("td", { text: label }),
+    h("td", {}, h("span", { class: "full", text: label }), h("span", { class: "short", text: short })),
     h("td", {}, `${t.done}/${t.total}`, h("span", { class: "bar", "aria-hidden": "true" }, fill)),
     num(t.todo, "n-todo"),
     num(t.locked, "n-locked"),
+    num(t.blocked, "n-blocked"),
     h("td", {}, score)
   );
 }
 
 function renderSummary(all) {
   const rows = SUMMARY_ROWS
-    .map(([k, label]) => [label, all.filter((i) => i.category === k)])
-    .filter(([, items]) => items.length)
-    .map(([label, items]) => summaryRow(label, tally(items)));
+    .map(([k, label, short]) => [label, short, all.filter((i) => i.category === k)])
+    .filter(([, , items]) => items.length)
+    .map(([label, short, items]) => summaryRow(label, tally(items), short));
   $("summary-table").replaceChildren(
-    h("thead", {}, h("tr", {}, ["Category", "Done", "To do", "Closed", "Score"].map((t) => h("th", { scope: "col", text: t })))),
+    h("thead", {}, h("tr", {}, ["Category", "Done", "To do", "Closed", "Blocked", "Score"].map((t) => h("th", { scope: "col", class: t === "Closed" ? "n-locked" : null, text: t })))),
     h("tbody", {}, rows),
     h("tfoot", {}, summaryRow("Total", tally(all)))
   );
@@ -268,31 +295,59 @@ function chip(item) {
   return h("a", { class: `chip ${item.status}`, href: item.url, target: "_blank", rel: "noopener", title: item.title, text });
 }
 
+const SVG = "http://www.w3.org/2000/svg";
+function lockIcon() {
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const shackle = document.createElementNS(SVG, "path");
+  shackle.setAttribute("d", "M8 11V8a4 4 0 0 1 8 0v3");
+  const body = document.createElementNS(SVG, "rect");
+  Object.entries({ x: 5, y: 11, width: 14, height: 10, rx: 2 }).forEach(([k, v]) => body.setAttribute(k, v));
+  svg.append(shackle, body);
+  return svg;
+}
+
+// One ✓ / ✗ / lock mark per item, linked to Canvas.
+function mark(i) {
+  const kind = i.status === "done" ? "ok" : i.status === "blocked" ? "lock" : "no";
+  const scored = i.score != null && i.points > 1 && (i.status === "done" || i.status === "retake");
+  const why = { blocked: "Blocked", pending: "Awaiting grade", retake: "Below 80%, retake", locked: "Closed", missing: "Missing", todo: "Not done", done: "Done" }[i.status] || "";
+  const label = `${i.title}: ${why}${scored ? ` (${i.score}/${i.points})` : ""}`;
+  return h("a", { class: `mk ${kind}`, href: i.url, target: "_blank", rel: "noopener", title: label, "aria-label": label },
+    kind === "lock" ? lockIcon() : h("b", { text: kind === "ok" ? "✓" : "✗" }),
+    scored ? h("small", { text: `${i.score}/${i.points}` }) : null
+  );
+}
+
 function renderLessons() {
   const lessons = report.modules.filter((m) => m.lesson != null);
   const extra = report.modules.filter((m) => m.lesson == null);
   const visible = lessons.filter((m) => filter === "all" || m.items.some((i) => OPEN.includes(i.status)));
   const cols = COLS.filter(([k]) => lessons.some((m) => m.items.some((i) => i.category === k)));
 
-  // Desktop table
-  const head = h("tr", {}, h("th", { text: "Lesson" }), cols.map(([, label]) => h("th", { text: label })));
+  const next = lessons.find((m) => m.blocked);
+  $("gate-note").textContent = next
+    ? `You can work up to Lesson ${report.unlockedThrough} (your latest passed terminal quiz is ${report.lastPassed ? `Lesson ${report.lastPassed}` : "none yet"}, plus ${UNLOCK_AHEAD}). Lesson ${next.lesson} onward unlocks as you pass more terminal quizzes.`
+    : `Every lesson is unlocked.`;
+
+  const head = h("tr", {},
+    h("th", { scope: "col", text: "Lesson" }),
+    cols.map(([, full, short]) => h("th", { scope: "col" }, h("span", { class: "full", text: full }), h("span", { class: "short", text: short })))
+  );
   const rows = visible.map((m) =>
-    h("tr", {},
-      h("td", { text: m.name }),
+    h("tr", { class: m.blocked ? "blocked-row" : null },
+      h("th", { scope: "row" }, h("span", { class: "full", text: m.name }), h("span", { class: "short", text: m.lesson != null ? `L${m.lesson}` : m.name })),
       cols.map(([k]) => {
         const items = m.items.filter((i) => i.category === k);
-        if (!items.length) return h("td", {}, h("span", { class: "na", text: "—" }));
-        return h("td", {}, h("div", { class: "cell" },
-          items.map((i) => items.length > 1 ? h("div", {}, chip(i), h("div", { class: "small muted", text: shortTitle(i.title) })) : chip(i))
-        ));
+        return h("td", {}, items.length ? h("div", { class: "marks" }, items.map(mark)) : h("span", { class: "na", text: "—" }));
       })
     )
   );
-  const empty = visible.length ? null : h("tr", {}, h("td", { colspan: cols.length + 1, class: "muted", text: "Every lesson is finished." }));
+  const empty = visible.length ? null : h("tr", {}, h("td", { colspan: cols.length + 1, class: "muted", text: "Nothing unfinished in the open lessons." }));
   $("grid").replaceChildren(h("thead", {}, head), h("tbody", {}, rows, empty));
 
-  // Mobile cards
-  $("cards").replaceChildren(...visible.map(moduleCard));
+  $("legend-lock").replaceChildren(lockIcon());
   $("extra-section").hidden = !extra.length;
   $("extra").replaceChildren(...extra.map(moduleCard));
 }
@@ -340,7 +395,7 @@ window.addEventListener("online", () => { if (!$("app").hidden) loadReport(); })
     const cached = Object.keys(localStorage).filter((k) => k.startsWith(CACHE)).map((k) => store.get(k))
       .find((r) => r && (!courseId || String(r.course.id) === String(courseId)));
     if (cached) {
-      report = cached;
+      report = gate(cached);
       $("hello").textContent = "Welcome back 👋";
       $("course").replaceChildren(h("option", { value: cached.course.id, text: cached.course.name }));
       $("login").hidden = true;

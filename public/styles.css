@@ -143,6 +143,7 @@ label.check input { width: auto; margin: 0; }
 .sum .bar i { display: block; height: 100%; background: var(--done); }
 .sum .n-todo { color: var(--todo); font-weight: 600; }
 .sum .n-locked { color: var(--locked); font-weight: 600; }
+.sum .n-blocked { color: var(--text); font-weight: 600; }
 .sum .zero { color: var(--muted); font-weight: 400; }
 
 .sum-note { margin: -6px 0 10px; }
@@ -200,9 +201,40 @@ a.chip:hover { filter: brightness(.95); }
 .card li a.title { color: var(--text); text-decoration: none; min-width: 0; overflow-wrap: anywhere; }
 .card li a.title:hover { text-decoration: underline; }
 
+/* Lesson checklist */
+.gate-note { margin: -4px 0 6px; }
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 12px; color: var(--muted); }
+.legend .mk { margin-left: 4px; }
+.checks th, .checks td { text-align: center; vertical-align: middle; }
+.checks th:first-child, .checks tbody th { text-align: left; }
+.checks tbody th { font-weight: 700; white-space: nowrap; background: transparent; color: var(--text); text-transform: none; letter-spacing: 0; font-size: .95rem; }
+.checks .short { display: none; }
+.marks { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.mk { display: inline-flex; flex-direction: column; align-items: center; text-decoration: none; line-height: 1.1; }
+.mk b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 1rem; }
+.mk.ok b { background: var(--done-soft); color: var(--done); }
+.mk.no b { background: var(--locked-soft); color: var(--locked); }
+.mk svg { width: 28px; height: 28px; padding: 6px; border-radius: 50%; background: var(--surface-2); fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; }
+.mk small { font-size: .72rem; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.mk:hover b, .mk:hover svg { outline: 2px solid var(--text); }
+.legend .mk b { width: 20px; height: 20px; font-size: .75rem; }
+.legend .mk svg { width: 20px; height: 20px; padding: 4px; }
+.blocked-row { background: var(--surface-2); }
+.blocked-row th { color: var(--muted) !important; }
+.sum .short { display: none; }
+
 @media (max-width: 760px) {
-  .table-wrap { display: none; }
-  .cards { display: grid; }
+  .checks th, .checks td { padding: 10px 6px; }
+  .checks .full { display: none; }
+  .checks .short { display: inline; }
+  .marks { gap: 4px; }
+  .sum th, .sum td { padding: 10px 5px; }
+  .sum th { font-size: .66rem; letter-spacing: 0; }
+  .sum .full, .sum .n-locked { display: none; }
+  .stat { min-width: 0; flex: 1; padding: 8px 6px; }
+  .stat-row { flex-wrap: nowrap; }
+  .sum .short { display: inline; }
+  .sum td:first-child { white-space: nowrap; }
   .summary { flex-direction: column; text-align: center; }
   .stat-row { justify-content: center; }
   .btn.ghost { padding: 8px 10px; }

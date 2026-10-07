@@ -75,6 +75,7 @@
             <div class="stat"><b id="n-done">–</b><span>done</span></div>
             <div class="stat"><b id="n-todo">–</b><span>to do</span></div>
             <div class="stat"><b id="n-locked">–</b><span>closed</span></div>
+            <div class="stat"><b id="n-blocked">–</b><span>blocked</span></div>
           </div>
           <p class="muted small" id="updated"></p>
         </div>
@@ -101,10 +102,11 @@
             <button data-filter="todo">Unfinished</button>
           </div>
         </div>
+        <p class="muted small gate-note" id="gate-note"></p>
+        <p class="legend small"><span class="mk ok"><b>✓</b></span> done <span class="mk no"><b>✗</b></span> not done <span class="mk lock" id="legend-lock"></span> blocked <span class="na">—</span> not set</p>
         <div class="table-wrap">
-          <table class="grid" id="grid"></table>
+          <table class="grid checks" id="grid"></table>
         </div>
-        <div id="cards" class="cards"></div>
       </section>
 
       <section id="extra-section" hidden>
