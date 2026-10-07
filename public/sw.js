@@ -1,6 +1,6 @@
 // App-shell service worker. API responses are never cached here
 // (they carry the student's data; the app keeps its own last copy).
-const VERSION = "wtr-v5";
+const VERSION = "wtr-v7";
 const SHELL = [
   "/",
   "/index.html",

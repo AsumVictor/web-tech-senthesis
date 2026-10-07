@@ -11,7 +11,7 @@ A progressive web app that shows a student's Canvas course progress. It has a su
 ## Layout
 
 - `public/` holds the static PWA (HTML, CSS, JS, service worker, manifest, icons).
-- `api/` holds the Vercel serverless functions (`/api/login`, `/api/logout`, `/api/me`, `/api/report`, `/api/config`).
+- `api/` holds the Vercel serverless functions (`/api/login`, `/api/logout`, `/api/me`, `/api/report`, `/api/health`).
 - `lib/canvas.js` holds the Canvas proxy and report builder that both use.
 - `server.js` is a zero-dependency local dev server that runs the same routes.
 
@@ -27,10 +27,9 @@ npm start        # http://localhost:3000 (Node 20+)
 vercel deploy --prod
 ```
 
-Optional environment variables:
+Environment variables:
 
 | Var | Default | Purpose |
 |---|---|---|
-| `CANVAS_DEFAULT_HOST` | `ashesi.instructure.com` | Prefilled Canvas address on the sign-in page |
+| `CANVAS_HOST` | `ashesi.instructure.com` | The Canvas site to read from (internal; students never see it) |
 | `TERMINAL_PASS` | `0.8` | Fraction of points a terminal quiz needs to count as passed |
-| `CANVAS_ALLOWED_HOSTS` | (none) | Comma-separated extra Canvas hosts that aren't on `instructure.com` |

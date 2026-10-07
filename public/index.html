@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Web Tech Report</title>
   <meta name="description" content="Your Canvas course progress: lessons, labs, quizzes and what's left to do.">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -21,9 +22,6 @@
       <h1>Web Tech Report</h1>
       <p class="muted">Sign in with your Canvas access token to see every lesson, lab and quiz, with ticks for what you've finished.</p>
       <form id="login-form" autocomplete="off">
-        <label>Canvas address
-          <input id="host" name="host" inputmode="url" spellcheck="false" placeholder="ashesi.instructure.com" required>
-        </label>
         <label>Access token
           <input id="token" name="token" type="password" spellcheck="false" placeholder="Paste your token" required>
         </label>

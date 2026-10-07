@@ -68,10 +68,6 @@ function busy(on) { $("loading").hidden = !on; }
 async function showLogin(message) {
   $("app").hidden = true;
   $("login").hidden = false;
-  if (!$("host").value) {
-    const cfg = await fetch("/api/config").then((r) => r.json()).catch(() => ({}));
-    $("host").value = cfg.defaultHost || "ashesi.instructure.com";
-  }
   const err = $("login-error");
   err.hidden = !message;
   err.textContent = message || "";
@@ -79,13 +75,12 @@ async function showLogin(message) {
 
 $("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const host = $("host").value.trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
   const token = $("token").value.trim();
-  if (!host || !token) return;
+  if (!token) return;
   $("login-btn").disabled = true;
   busy(true);
   try {
-    const me = await api("/api/login", { host, token });
+    const me = await api("/api/login", { token });
     $("token").value = "";
     await showDashboard(me);
   } catch (err) {
@@ -206,7 +201,9 @@ function tally(items) {
 function summaryRow(label, t) {
   const pct = t.total ? Math.round((t.done / t.total) * 100) : 0;
   const num = (v, cls) => h("td", { class: v ? cls : `${cls} zero`, text: String(v) });
-  const score = t.points ? `${+t.score.toFixed(1)}/${t.points} (${Math.round((t.score / t.points) * 100)}%)` : "—";
+  const score = t.points
+    ? [h("span", { class: "frac", text: `${+t.score.toFixed(1)}/${t.points} ` }), h("span", { class: "pct", text: `${Math.round((t.score / t.points) * 100)}%` })]
+    : "—";
   const fill = h("i");
   fill.style.width = `${pct}%`; // CSSOM, so the strict CSP allows it
   return h("tr", {},
@@ -214,7 +211,7 @@ function summaryRow(label, t) {
     h("td", {}, `${t.done}/${t.total}`, h("span", { class: "bar", "aria-hidden": "true" }, fill)),
     num(t.todo, "n-todo"),
     num(t.locked, "n-locked"),
-    h("td", { text: score })
+    h("td", {}, score)
   );
 }
 
@@ -333,7 +330,7 @@ window.addEventListener("online", () => { if (!$("app").hidden) loadReport(); })
     const legacy = store.get(LEGACY_KEY);
     if (legacy && legacy.token) {
       store.del(LEGACY_KEY);
-      try { return await showDashboard(await api("/api/login", legacy)); } catch {}
+      try { return await showDashboard(await api("/api/login", { token: legacy.token })); } catch {}
     }
     await showDashboard(await api("/api/me"));
   } catch (err) {
